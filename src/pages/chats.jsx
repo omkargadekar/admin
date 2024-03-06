@@ -1,17 +1,17 @@
 import { Helmet } from 'react-helmet-async';
 
-import { UserView } from 'src/sections/user/view';
+import ChatView from 'src/sections/chat/chat-view';
 
 // ----------------------------------------------------------------------
 
-export default function UserPage() {
+export default function ChatPage() {
   return (
     <>
       <Helmet>
-        <title> User | Realax </title>
+        <title> Chats | Realax </title>
       </Helmet>
 
-      <UserView />
+      <ChatView />
     </>
   );
 }
