@@ -22,7 +22,6 @@
   "dependencies": {
     "@faker-js/faker": "^8.1.0",
     "@iconify/react": "^4.1.1",
-    "@mui/icons-material": "^5.15.12",
     "@mui/lab": "^5.0.0-alpha.147",
     "@mui/material": "^5.15.12",
     "apexcharts": "^3.43.0",

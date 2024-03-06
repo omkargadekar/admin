@@ -1,21 +1,24 @@
 import * as React from 'react';
 import PropTypes from 'prop-types';
 import Box from '@mui/material/Box';
-import CssBaseline from '@mui/material';
+import CssBaseline from '@mui/material/CssBaseline';
 import AppBar from '@mui/material/AppBar';
 import Divider from '@mui/material/Divider';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
-import InboxIcon from '@mui/icons-material/MoveToInbox';
+// import InboxIcon from '@mui/icons-material/MoveToInbox';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import MailIcon from '@mui/icons-material/Mail';
-import MenuIcon from '@mui/icons-material/Menu';
+// import MailIcon from '@mui/icons-material/Mail';
+// import MenuIcon from '@mui/icons-material/Menu';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
+import { Avatar, Button, ListItemAvatar, TextField } from '@mui/material';
+import { useAuth } from 'src/contexts/auth-context';
+import ChatList from './chat-list';
 
 const drawerWidth = 240;
 
@@ -23,9 +26,20 @@ export default function ChatView(props) {
   const { window } = props;
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [isClosing, setIsClosing] = React.useState(false);
-//   const [currentChat, setCurrentChat] = React.useState({
-//     _id : "1",name:"Start a Chat" , avatar:null 
-//   })
+  const [message , setMessage] = React.useState(null)
+
+  const [loadingChats, setLoadingChats] = React.useState(false);
+  const [currentChat, setCurrentChat] = React.useState({
+    chatID:1,
+    userid: '1',
+    name: 'Start a Chat',
+    avatar: null,
+  });
+  const { getAllAvailableUsers, chatUsers, getAllSingleUserChats, chats , sendMessageinChat} = useAuth();
+  const myid = localStorage.getItem('userID');
+  React.useEffect(() => {
+    getAllAvailableUsers();
+  }, []);
 
   const handleDrawerClose = () => {
     setIsClosing(true);
@@ -41,44 +55,122 @@ export default function ChatView(props) {
       setMobileOpen(!mobileOpen);
     }
   };
+  const handleUserClick = async (user) => {
+    console.log(user);
+    setCurrentChat({
+      chatID:user._id,
+      userid:
+        user.participants[0]?._id === myid ? user.participants[1]?._id : user?.participants[0]?._id,
+      name:
+        user.participants[0]?._id === myid
+          ? user.participants[1]?.username
+          : user?.participants[0]?.username,
+      avatar:
+        user.participants[0]?._id === myid
+          ? user.participants[1]?.avatar
+          : user?.participants[0]?.avatar,
+    });
+    setLoadingChats(true);
+    try {
+      await getAllSingleUserChats(user._id);
+      console.log(chats);
+      setLoadingChats(false);
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   const drawer = (
     <div>
       <Toolbar />
       <Divider />
-      <List>
-        {['Inbox', 'Starred', 'Send email', 'Drafts'].map((text, index) => (
-          <ListItem key={text} disablePadding>
-            <ListItemButton>
-              <ListItemIcon>{index % 2 === 0 ? <InboxIcon /> : <MailIcon />}</ListItemIcon>
-              <ListItemText primary={text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
+      <List sx={{ borderRadius: '10px', position: 'relative' }}>
+        {chatUsers
+          ?.filter((user) => !user.isGroupChat)
+          .map((user) => (
+            <ListItem key={user.participants[0]?._id} button onClick={() => handleUserClick(user)}>
+              <ListItemAvatar>
+                <Avatar
+                  alt={
+                    user.participants[0]?._id === myid
+                      ? user.participants[1]?.username
+                      : user.username
+                  }
+                  src={user.avatar}
+                />
+              </ListItemAvatar>
+              <ListItemText
+                primary={
+                  user.participants[0]?._id === myid
+                    ? user.participants[1]?.username
+                    : user?.participants[0]?.username
+                }
+                secondary={user.lastActive}
+              />
+            </ListItem>
+          ))}
       </List>
       <Divider />
-      <List>
-        {['All mail', 'Trash', 'Spam'].map((text, index) => (
-          <ListItem key={text} disablePadding>
-            <ListItemButton>
-              <ListItemIcon>{index % 2 === 0 ? <InboxIcon /> : <MailIcon />}</ListItemIcon>
-              <ListItemText primary={text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
+      <List sx={{ borderRadius: '10px' }}>
+        {chatUsers
+          ?.filter((user) => !user.isGroupChat)
+          .map((user) => (
+            <ListItem key={user.participants[0]?._id} button onClick={() => handleUserClick(user)}>
+              <ListItemAvatar>
+                <Avatar
+                  alt={
+                    user.participants[0]?._id === myid
+                      ? user.participants[1]?.username
+                      : user.username
+                  }
+                  src={user.avatar}
+                />
+              </ListItemAvatar>
+              <ListItemText
+                primary={
+                  user.participants[0]?._id === myid
+                    ? user.participants[1]?.username
+                    : user?.participants[0]?.username
+                }
+                secondary={user.lastActive}
+              />
+            </ListItem>
+          ))}
       </List>
     </div>
   );
 
   // Remove this const when copying and pasting into your project.
   const container = window !== undefined ? () => window().document.body : undefined;
+  const handleMessageChange = (event) => {
+    setMessage(event.target.value);
+  };
 
+  const sendMessage = async (e) => {
+    e.preventDefault();
+    try {
+      if (message.trim() !== "" && currentChat.chatID) {
+        await sendMessageinChat(currentChat.chatID, message , e);
+        // await getAllSingleUserChats(chatId);
+        // await socket.on("messageReceived",(data) => {
+        //   setSingleChats((pre) => [...pre, data]);
+        // })
+        // socket.emit("joinChat",  chatId , message );
+
+        console.log("Message sent through socket:", message);
+
+        setMessage("");
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+  };
   return (
     <Box
       sx={{
         display: 'flex',
         flexDirection: 'row',
-        height: '100vh',
+        height: '76vh',
         width: '100%',
         backgroundColor: '#f6f6f6',
         border: '1px solid #e0e0e0',
@@ -89,7 +181,7 @@ export default function ChatView(props) {
       <CssBaseline />
 
       <AppBar
-        position="fixed"
+        position="absolute"
         sx={{
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           ml: { sm: `${drawerWidth}px` },
@@ -103,10 +195,16 @@ export default function ChatView(props) {
             onClick={handleDrawerToggle}
             sx={{ mr: 2, display: { sm: 'none' } }}
           >
-            <MenuIcon />
+            {/* <MenuIcon /> */}
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            Responsive drawer
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{ display: 'flex', alignItems: 'center', gap: '1rem' }}
+          >
+            <Avatar alt={currentChat.name} src={currentChat.avatar} />
+            {currentChat.name}
           </Typography>
         </Toolbar>
       </AppBar>
@@ -128,7 +226,7 @@ export default function ChatView(props) {
           sx={{
             display: { xs: 'block', sm: 'none' },
             '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-            position: 'static', // Change position to static
+            position: 'absolute', // Change position to static
           }}
         >
           {drawer}
@@ -140,7 +238,7 @@ export default function ChatView(props) {
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: drawerWidth,
-              position: 'relative',
+              position: 'absolute',
             },
             // Change position to static
           }}
@@ -150,33 +248,48 @@ export default function ChatView(props) {
         </Drawer>
       </Box>
       <Box
-        component="main"
-        sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}
+        component="div"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          overflowY: 'scroll',
+          position: 'relative',
+        }}
       >
         <Toolbar />
-        <Typography paragraph>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt
-          ut labore et dolore magna aliqua. Rhoncus dolor purus non enim praesent elementum
-          facilisis leo vel. Risus at ultrices mi tempus imperdiet. Semper risus in hendrerit
-          gravida rutrum quisque non tellus. Convallis convallis tellus id interdum velit laoreet id
-          donec ultrices. Odio morbi quis commodo odio aenean sed adipiscing. Amet nisl suscipit
-          adipiscing bibendum est ultricies integer quis. Cursus euismod quis viverra nibh cras.
-          Metus vulputate eu scelerisque felis imperdiet proin fermentum leo. Mauris commodo quis
-          imperdiet massa tincidunt. Cras tincidunt lobortis feugiat vivamus at augue. At augue eget
-          arcu dictum varius duis at consectetur lorem. Velit sed ullamcorper morbi tincidunt. Lorem
-          donec massa sapien faucibus et molestie ac.
-        </Typography>
-        <Typography paragraph>
-          Consequat mauris nunc congue nisi vitae suscipit. Fringilla est ullamcorper eget nulla
-          facilisi etiam dignissim diam. Pulvinar elementum integer enim neque volutpat ac
-          tincidunt. Ornare suspendisse sed nisi lacus sed viverra tellus. Purus sit amet volutpat
-          consequat mauris. Elementum eu facilisis sed odio morbi. Euismod lacinia at quis risus sed
-          vulputate odio. Morbi tincidunt ornare massa eget egestas purus viverra accumsan in. In
-          hendrerit gravida rutrum quisque non tellus orci ac. Pellentesque nec nam aliquam sem et
-          tortor. Habitant morbi tristique senectus et. Adipiscing elit duis tristique sollicitudin
-          nibh sit. Ornare aenean euismod elementum nisi quis eleifend. Commodo viverra maecenas
-          accumsan lacus vel facilisis. Nulla posuere sollicitudin aliquam ultrices sagittis orci a.
-        </Typography>
+        <Box>
+          <ChatList chats={chats} loadingChats={loadingChats} id={myid} />
+        </Box>
+      </Box>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: 1,
+          backgroundColor: '#fff',
+          position: 'absolute',
+          bottom: '0',
+          right: '0',
+          left: '0',
+          zIndex:'9999'
+        }}
+      >
+        <TextField
+          variant="outlined"
+          placeholder="Type a message..."
+            value={message}
+            onChange={handleMessageChange}
+          fullWidth
+        />
+         <Button
+    variant="contained"
+    color="primary"
+    onClick={sendMessage}
+    sx={{ marginLeft: 1 }} // Add some margin to separate the button from the text field
+  >
+    Submit
+  </Button>
       </Box>
     </Box>
   );
