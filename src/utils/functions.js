@@ -1,4 +1,6 @@
 const getTimeDifference = (createdAt) => {
+  if (!createdAt){
+    console.log("no valid date" ,createdAt)};
     const currentTime = new Date();
     const messageTime = new Date(createdAt);
     const differenceInSeconds = Math.floor((currentTime - messageTime) / 1000);

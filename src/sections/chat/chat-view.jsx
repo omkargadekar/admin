@@ -26,19 +26,32 @@ export default function ChatView(props) {
   const { window } = props;
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [isClosing, setIsClosing] = React.useState(false);
-  const [message , setMessage] = React.useState(null)
+  const [message, setMessage] = React.useState({
+    content:"",
+  });
 
   const [loadingChats, setLoadingChats] = React.useState(false);
   const [currentChat, setCurrentChat] = React.useState({
-    chatID:1,
+    chatID: 1,
     userid: '1',
     name: 'Start a Chat',
     avatar: null,
   });
-  const { getAllAvailableUsers, chatUsers, getAllSingleUserChats, chats , sendMessageinChat} = useAuth();
+  const {
+    getAllAvailableUsers,
+    chatUsers,
+    getAllSingleUserChats,
+    chats,
+    setChats,
+    sendMessageinChat,
+    initializeSocket,
+  } = useAuth();
   const myid = localStorage.getItem('userID');
   React.useEffect(() => {
     getAllAvailableUsers();
+  }, [chats]);
+  React.useEffect(() => {
+    initializeSocket();
   }, []);
 
   const handleDrawerClose = () => {
@@ -58,7 +71,7 @@ export default function ChatView(props) {
   const handleUserClick = async (user) => {
     console.log(user);
     setCurrentChat({
-      chatID:user._id,
+      chatID: user._id,
       userid:
         user.participants[0]?._id === myid ? user.participants[1]?._id : user?.participants[0]?._id,
       name:
@@ -143,28 +156,36 @@ export default function ChatView(props) {
   // Remove this const when copying and pasting into your project.
   const container = window !== undefined ? () => window().document.body : undefined;
   const handleMessageChange = (event) => {
-    setMessage(event.target.value);
+    setMessage({ ...message, content: event.target.value });
   };
-
+  
+  console.log(chats && chats.length)
   const sendMessage = async (e) => {
     e.preventDefault();
     try {
-      if (message.trim() !== "" && currentChat.chatID) {
-        await sendMessageinChat(currentChat.chatID, message , e);
-        // await getAllSingleUserChats(chatId);
-        // await socket.on("messageReceived",(data) => {
-        //   setSingleChats((pre) => [...pre, data]);
-        // })
-        // socket.emit("joinChat",  chatId , message );
-
-        console.log("Message sent through socket:", message);
-
-        setMessage("");
-      }
+      const messageContent = message.content || ''; // Ensure content is not empty
+  
+      const newMessage = {
+        content: messageContent,
+        sender: myid, // Assuming you store the user ID in localStorage
+        chat: currentChat.chatID,
+        attachments: [], // Assuming you don't have attachments for now
+      };
+  
+      await sendMessageinChat(currentChat.chatID, newMessage, e);
+      
+      setChats((prevChats) => [...prevChats, newMessage]);
+      
+      console.log('Message sent through socket:', newMessage);
+      console.log(chats);
+      
+      setMessage({ content: '' }); // Reset message content
+  
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error('Error sending message:', error);
     }
   };
+  
   return (
     <Box
       sx={{
@@ -272,24 +293,25 @@ export default function ChatView(props) {
           bottom: '0',
           right: '0',
           left: '0',
-          zIndex:'9999'
+          zIndex: '9999',
         }}
       >
         <TextField
           variant="outlined"
           placeholder="Type a message..."
-            value={message}
-            onChange={handleMessageChange}
+          value={message.content}
+          onChange={handleMessageChange}
           fullWidth
         />
-         <Button
-    variant="contained"
-    color="primary"
-    onClick={sendMessage}
-    sx={{ marginLeft: 1 }} // Add some margin to separate the button from the text field
-  >
-    Submit
-  </Button>
+        <Button
+          type="submit"
+          variant="contained"
+          color="primary"
+          onClick={sendMessage}
+          sx={{ marginLeft: 1 }} // Add some margin to separate the button from the text field
+        >
+          Submit
+        </Button>
       </Box>
     </Box>
   );

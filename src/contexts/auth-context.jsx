@@ -1,6 +1,7 @@
 import axios from 'axios';
 import PropTypes from 'prop-types';
 import { useMemo, useState, useContext, createContext, useEffect } from 'react';
+import { io } from 'socket.io-client';
 
 const AuthContext = createContext();
 
@@ -12,15 +13,20 @@ export const AuthProvider = ({ children }) => {
   const [customers, setCustomers] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const API = 'https://chatsapp-nw05.onrender.com/api/v1';
-
+  const [socket , setSocket] = useState(null)
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (token) {
       setAccessToken(token);
       // Fetch customers only when accessToken is available
-      getAllCustomers();
+      // getAllCustomers();
     }
   }, [accessToken]);
+
+
+  useEffect(()=>{
+
+  })
 
   const login = async (email, password) => {
     try {
@@ -91,11 +97,30 @@ export const AuthProvider = ({ children }) => {
         },
       });
       setChatUsers(res.data.data);
-      console.log(res.data.data);
       return chatUsers
     } catch (error) {
       console.error('Error fetching all chatusers:', error);
     }
+  };
+
+  function initializeSocket(){
+    const newSocket = io('https://chatsapp-nw05.onrender.com', {
+      headers: {
+        auth: {accessToken},
+        withCredentials: true,
+      },
+    });
+
+    newSocket.on("connect", () => {
+      console.log('Connected to socket server');
+    });
+
+    newSocket.on('messageReceived', (data) => {
+      console.log("Message received:", data);
+      setChats((pre) => [...pre, data]);
+    });
+
+    setSocket(newSocket);
   };
 
   const getAllSingleUserChats = async (chatId) => {
@@ -108,7 +133,10 @@ export const AuthProvider = ({ children }) => {
         },
       });
       // const singleUserChats = res.data.data;
-
+      socket.on("messageReceived", (data) => {
+        console.log("Message received:", data);
+        setChats((chats) => [...chats, data]);
+      });
       setChats(res.data.data);
       return chats;
      
@@ -117,17 +145,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const sendMessageinChat = async (chatId, messageContent, e) => {
+
+
+  const sendMessageinChat = async (chat, content, e) => {
+    console.log(content)
     e.preventDefault();
     try {
       // const socket = socketInitializer()
-      // socket.emit("sendMessage", { chatId, message: messageContent });
+      // socket.emit("sendMessage", { chat, message: content });
   
       // Make the Axios request to save the message
-      console.log(chatId , messageContent)
+      console.log(chat , content)
+      socket.emit('joinChat', { chat, content });
+
       const res = await axios.post(
-        `${API}/chat-app/messages/${chatId}`,
-        { content: messageContent },
+        `${API}/chat-app/messages/${chat}`,
+         content ,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -135,10 +168,12 @@ export const AuthProvider = ({ children }) => {
           },
         }
       );
-  
-      // Dispatch an action to update the state with the new message
-      // const message = res.data.data;
-      return res.data.data
+      socket.on("messageReceived", (data) => {
+        console.log("Message received:", data);
+      });
+      setChats((prev) => [content, ...prev]);
+        
+      // return res.data.data
     } catch (error) {
       console.error("Error sending message:", error);
       // Handle error appropriately
@@ -154,10 +189,12 @@ export const AuthProvider = ({ children }) => {
       getAllAvailableUsers,
       getAllSingleUserChats,
       sendMessageinChat,
+      initializeSocket,
       user,
       customers,
       chatUsers,
       chats,
+      setChats,
     }),
     // []
   );
