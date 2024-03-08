@@ -24,9 +24,18 @@ export const AuthProvider = ({ children }) => {
   }, [accessToken]);
 
 
-  useEffect(()=>{
-
-  })
+  useEffect(() => {
+    if (socket) {
+      socket.on('messageReceived', (data) => {
+        console.log("Message received:", data);
+        setChats((prevChats) => [...prevChats, data]);
+      });
+      return () => {
+        socket.off('messageReceived');
+      };
+    }
+  }, [socket]);
+  
 
   const login = async (email, password) => {
     try {
@@ -125,42 +134,34 @@ export const AuthProvider = ({ children }) => {
 
   const getAllSingleUserChats = async (chatId) => {
     try {
-      // Use a simple request (GET) without additional headers that might trigger OPTIONS requests
-     
       const res = await axios.get(`${API}/chat-app/messages/${chatId}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       });
-      // const singleUserChats = res.data.data;
-      socket.on("messageReceived", (data) => {
-        console.log("Message received:", data);
-        setChats((chats) => [...chats, data]);
-      });
-      setChats(res.data.data);
-      return chats;
-     
+      const singleUserChats = res.data.data;
+      
+      setChats(singleUserChats);
+      
+      return singleUserChats;
     } catch (error) {
-      console.error("Error fetching all users:", error);
+      console.error("Error fetching all chats:", error);
     }
   };
+  
 
 
 
-  const sendMessageinChat = async (chat, content, e) => {
-    console.log(content)
+  const sendMessageinChat = async (chatId, content, e) => {
     e.preventDefault();
     try {
-      // const socket = socketInitializer()
-      // socket.emit("sendMessage", { chat, message: content });
-  
-      // Make the Axios request to save the message
-      console.log(chat , content)
-      socket.emit('joinChat', { chat, content });
-
+      // Emit the new message to the socket server
+      socket.emit('recievedMessage', { chat: chatId, content });
+      
+      // Send the new message to the API
       const res = await axios.post(
-        `${API}/chat-app/messages/${chat}`,
-         content ,
+        `${API}/chat-app/messages/${chatId}`,
+        content,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -168,17 +169,28 @@ export const AuthProvider = ({ children }) => {
           },
         }
       );
-      socket.on("messageReceived", (data) => {
-        console.log("Message received:", data);
+  
+      // Add the new message to the existing chat messages
+      const updatedChats = chats.map((chat) => {
+        if (chat._id === chatId) {
+          return {
+            ...chat,
+            messages: [...chat.messages, res.data.data], // Assuming the new message is returned from the API response
+          };
+        }
+        return chat;
       });
-      setChats((prev) => [content, ...prev]);
-        
-      // return res.data.data
+  
+
+      // Update the chats state with the modified chat
+      setChats(updatedChats);
+      getAllSingleUserChats(chatId)
     } catch (error) {
       console.error("Error sending message:", error);
       // Handle error appropriately
     }
   };
+  
   
 
   const authValue = useMemo(
@@ -196,7 +208,7 @@ export const AuthProvider = ({ children }) => {
       chats,
       setChats,
     }),
-    // []
+    [login, logout, getAllCustomers, getAllAvailableUsers, getAllSingleUserChats, sendMessageinChat, user, customers, chatUsers, chats, setChats]
   );
 
   return <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>;

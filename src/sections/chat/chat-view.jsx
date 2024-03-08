@@ -53,6 +53,9 @@ export default function ChatView(props) {
   React.useEffect(() => {
     initializeSocket();
   }, []);
+  React.useEffect(() => {
+    getAllSingleUserChats(currentChat.chatID);
+  }, []);
 
   const handleDrawerClose = () => {
     setIsClosing(true);
@@ -85,7 +88,7 @@ export default function ChatView(props) {
     });
     setLoadingChats(true);
     try {
-      await getAllSingleUserChats(user._id);
+      await getAllSingleUserChats(currentChat.chatID);
       console.log(chats);
       setLoadingChats(false);
     } catch (error) {
@@ -171,9 +174,26 @@ export default function ChatView(props) {
         chat: currentChat.chatID,
         attachments: [], // Assuming you don't have attachments for now
       };
+      console.log(newMessage)
   
       await sendMessageinChat(currentChat.chatID, newMessage, e);
       
+      // await setChats((prevChats) => {
+      //   const updatedChats = prevChats.map((chat) => {
+      //     if (chat._id === currentChat.chatID) {
+      //       // If this is the current chat, add the new message
+      //       console.log(chat)
+      //       return {
+      //         ...chat,
+      //         messages: [...chat.messages, newMessage],
+            
+      //       };
+      //     }
+      //     return chat;
+      //   });
+      //   return updatedChats;
+      // });
+
       setChats((prevChats) => [...prevChats, newMessage]);
       
       console.log('Message sent through socket:', newMessage);
