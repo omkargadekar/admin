@@ -13,8 +13,13 @@ export const AuthProvider = ({ children }) => {
   const [message, setMessage] = useState(null);
   const [customers, setCustomers] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
+<<<<<<< HEAD
   const API = 'https://chatsapp-nw05.onrender.com/api/v1';
   const [socket, setSocket] = useState(null);
+=======
+  const API = 'https://chats-app-admin.onrender.com';
+  const [socket , setSocket] = useState(null)
+>>>>>>> ea011afdd2f7c86ddb962d5aaf5986ff4ac4b10e
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (token) {
@@ -111,8 +116,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+<<<<<<< HEAD
   function initializeSocket() {
     const newSocket = io('https://chatsapp-nw05.onrender.com', {
+=======
+  function initializeSocket(){
+    const newSocket = io('https://chats-app-admin.onrender.com/', {
+>>>>>>> ea011afdd2f7c86ddb962d5aaf5986ff4ac4b10e
       headers: {
         auth: { accessToken },
         withCredentials: true,
@@ -123,11 +133,15 @@ export const AuthProvider = ({ children }) => {
       console.log('Connected to socket server');
     });
 
+<<<<<<< HEAD
     newSocket.on('messageReceived', (data) => {
       console.log('Message received:', data);
       setChats((pre) => [...pre, data]);
     });
 
+=======
+    
+>>>>>>> ea011afdd2f7c86ddb962d5aaf5986ff4ac4b10e
     setSocket(newSocket);
   }
 
@@ -139,7 +153,15 @@ export const AuthProvider = ({ children }) => {
         },
       });
       const singleUserChats = res.data.data;
+<<<<<<< HEAD
 
+=======
+      socket.on('messageReceived', (data) => {
+        console.log("Message received:", data);
+        setChats((pre) => [...pre, data]);
+      });
+  
+>>>>>>> ea011afdd2f7c86ddb962d5aaf5986ff4ac4b10e
       setChats(singleUserChats);
 
       return singleUserChats;
@@ -152,8 +174,13 @@ export const AuthProvider = ({ children }) => {
     e.preventDefault();
     try {
       // Emit the new message to the socket server
+<<<<<<< HEAD
       socket.emit('recievedMessage', { chat: chatId, content });
 
+=======
+      // socket.emit('recievedMessage', { chat: chatId, content });
+      
+>>>>>>> ea011afdd2f7c86ddb962d5aaf5986ff4ac4b10e
       // Send the new message to the API
       const res = await axios.post(`${API}/chat-app/messages/${chatId}`, content, {
         headers: {
