@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   const [message , setMessage] = useState(null)
   const [customers, setCustomers] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
-  const API = 'https://chatsapp-nw05.onrender.com/api/v1';
+  const API = 'https://chats-app-admin.onrender.com';
   const [socket , setSocket] = useState(null)
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -113,7 +113,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   function initializeSocket(){
-    const newSocket = io('https://chatsapp-nw05.onrender.com', {
+    const newSocket = io('https://chats-app-admin.onrender.com/', {
       headers: {
         auth: {accessToken},
         withCredentials: true,
@@ -124,11 +124,7 @@ export const AuthProvider = ({ children }) => {
       console.log('Connected to socket server');
     });
 
-    newSocket.on('messageReceived', (data) => {
-      console.log("Message received:", data);
-      setChats((pre) => [...pre, data]);
-    });
-
+    
     setSocket(newSocket);
   };
 
@@ -140,7 +136,11 @@ export const AuthProvider = ({ children }) => {
         },
       });
       const singleUserChats = res.data.data;
-      
+      socket.on('messageReceived', (data) => {
+        console.log("Message received:", data);
+        setChats((pre) => [...pre, data]);
+      });
+  
       setChats(singleUserChats);
       
       return singleUserChats;
@@ -156,7 +156,7 @@ export const AuthProvider = ({ children }) => {
     e.preventDefault();
     try {
       // Emit the new message to the socket server
-      socket.emit('recievedMessage', { chat: chatId, content });
+      // socket.emit('recievedMessage', { chat: chatId, content });
       
       // Send the new message to the API
       const res = await axios.post(
