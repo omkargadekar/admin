@@ -16,9 +16,22 @@ import ListItemText from '@mui/material/ListItemText';
 // import MenuIcon from '@mui/icons-material/Menu';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
+import io from 'socket.io-client';
+
 import { Avatar, Button, ListItemAvatar, TextField } from '@mui/material';
+
 import { useAuth } from 'src/contexts/auth-context';
+
+import { ChatState } from 'src/contexts/chatProvider';
+
+import axios from 'axios';
+
 import ChatList from './chat-list';
+
+const ENDPOINT = 'https://chats-app-admin.onrender.com/';
+
+let socket;
+let selectedChatCompare;
 
 const drawerWidth = 240;
 
@@ -26,17 +39,26 @@ export default function ChatView(props) {
   const { window } = props;
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [isClosing, setIsClosing] = React.useState(false);
-  const [message, setMessage] = React.useState({
-    content:"",
-  });
+  // const [message, setMessage] = React.useState({
+  //   content:"",
+  // });
 
-  const [loadingChats, setLoadingChats] = React.useState(false);
+  // const [loadingChats, setLoadingChats] = React.useState(false);
   const [currentChat, setCurrentChat] = React.useState({
     chatID: 1,
     userid: '1',
     name: 'Start a Chat',
     avatar: null,
   });
+  const [messages, setMessages] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [newMessage, setNewMessage] = React.useState('');
+  const [socketConnected, setSocketConnected] = React.useState(false);
+  const [typing, setTyping] = React.useState(false);
+  const [istyping, setIsTyping] = React.useState(false);
+  const { selectedChat, setSelectedChat, user, notification, setNotification } = ChatState();
+  const [fetchAgain, setFetchAgain] = React.useState(false);
+
   const {
     getAllAvailableUsers,
     chatUsers,
@@ -46,16 +68,39 @@ export default function ChatView(props) {
     sendMessageinChat,
     initializeSocket,
   } = useAuth();
-  const myid = localStorage.getItem('userID');
+  console.log(user);
+  const myid = user._id;
   React.useEffect(() => {
     getAllAvailableUsers();
-  }, [chats]);
-  React.useEffect(() => {
-    initializeSocket();
-  }, []);
-  React.useEffect(() => {
-    getAllSingleUserChats(currentChat.chatID);
-  }, []);
+  }, [getAllAvailableUsers]);
+  // React.useEffect(() => {
+  //   initializeSocket();
+  // }, []);
+  // React.useEffect(() => {
+  //   getAllSingleUserChats(currentChat.chatID);
+  // }, []);
+
+  const fetchMessages = async () => {
+    if (!selectedChat) return;
+
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+
+      setLoading(true);
+
+      const { data } = await axios.get(`${ENDPOINT}/api/message/${selectedChat._id}`, config);
+      setMessages(data);
+      setLoading(false);
+
+      socket.emit('join chat', selectedChat._id);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const handleDrawerClose = () => {
     setIsClosing(true);
@@ -86,11 +131,10 @@ export default function ChatView(props) {
           ? user.participants[1]?.avatar
           : user?.participants[0]?.avatar,
     });
-    setLoadingChats(true);
+
     try {
       await getAllSingleUserChats(currentChat.chatID);
       console.log(chats);
-      setLoadingChats(false);
     } catch (error) {
       console.log(error);
     }
@@ -161,51 +205,90 @@ export default function ChatView(props) {
   const handleMessageChange = (event) => {
     setMessage({ ...message, content: event.target.value });
   };
-  
-  console.log(chats && chats.length)
-  const sendMessage = async (e) => {
-    e.preventDefault();
-    try {
-      const messageContent = message.content || ''; // Ensure content is not empty
-  
-      const newMessage = {
-        content: messageContent,
-        sender: myid, // Assuming you store the user ID in localStorage
-        chat: currentChat.chatID,
-        attachments: [], // Assuming you don't have attachments for now
-      };
-      console.log(newMessage)
-  
-      await sendMessageinChat(currentChat.chatID, newMessage, e);
-      
-      // await setChats((prevChats) => {
-      //   const updatedChats = prevChats.map((chat) => {
-      //     if (chat._id === currentChat.chatID) {
-      //       // If this is the current chat, add the new message
-      //       console.log(chat)
-      //       return {
-      //         ...chat,
-      //         messages: [...chat.messages, newMessage],
-            
-      //       };
-      //     }
-      //     return chat;
-      //   });
-      //   return updatedChats;
-      // });
 
-      setChats((prevChats) => [...prevChats, newMessage]);
-      
-      console.log('Message sent through socket:', newMessage);
-      console.log(chats);
-      
-      setMessage({ content: '' }); // Reset message content
-  
-    } catch (error) {
-      console.error('Error sending message:', error);
+  console.log(chats && chats.length);
+  const sendMessage = async (event) => {
+    if (event.key === 'Enter' && newMessage) {
+      socket.emit('stop typing', selectedChat._id);
+      try {
+        const config = {
+          headers: {
+            'Content-type': 'application/json',
+            Authorization: `Bearer ${user.token}`,
+          },
+        };
+        setNewMessage('');
+        const { data } = await axios.post(
+          '/api/message',
+          {
+            content: newMessage,
+            chatId: selectedChat,
+          },
+          config
+        );
+        socket.emit('new message', data);
+        setMessages([...messages, data]);
+      } catch (error) {
+        console.dir(error);
+      }
     }
   };
-  
+
+  React.useEffect(() => {
+    socket = io(ENDPOINT);
+    socket.emit('setup', user);
+    socket.on('connected', () => setSocketConnected(true));
+    socket.on('typing', () => setIsTyping(true));
+    socket.on('stop typing', () => setIsTyping(false));
+
+    // eslint-disable-next-line
+  }, []);
+
+  React.useEffect(() => {
+    fetchMessages();
+
+    selectedChatCompare = selectedChat;
+    // eslint-disable-next-line
+  }, [selectedChat]);
+
+  React.useEffect(() => {
+    socket.on('message recieved', (newMessageRecieved) => {
+      if (
+        !selectedChatCompare || // if chat is not selected or doesn't match current chat
+        selectedChatCompare._id !== newMessageRecieved.chat._id
+      ) {
+        if (!notification.includes(newMessageRecieved)) {
+          setNotification([newMessageRecieved, ...notification]);
+          setFetchAgain(!fetchAgain);
+        }
+      } else {
+        setMessages([...messages, newMessageRecieved]);
+      }
+    });
+  });
+
+  const typingHandler = (e) => {
+    const timerLength = 3000;
+    const timeNow = new Date().getTime();
+    const timeDiff = timeNow - lastTypingTime;
+    setNewMessage(e.target.value);
+
+    if (!socketConnected) return;
+
+    if (!typing) {
+      setTyping(true);
+      socket.emit('typing', selectedChat._id);
+    }
+    const lastTypingTime = new Date().getTime();
+
+    setTimeout(() => {
+      if (timeDiff >= timerLength && typing) {
+        socket.emit('stop typing', selectedChat._id);
+        setTyping(false);
+      }
+    }, timerLength);
+  };
+
   return (
     <Box
       sx={{
@@ -300,7 +383,7 @@ export default function ChatView(props) {
       >
         <Toolbar />
         <Box>
-          <ChatList chats={chats} loadingChats={loadingChats} id={myid} />
+          <ChatList chats={chats} id={myid} />
         </Box>
       </Box>
       <Box

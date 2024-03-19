@@ -4,16 +4,17 @@ import { useMemo, useState, useContext, createContext, useEffect } from 'react';
 import { io } from 'socket.io-client';
 
 const AuthContext = createContext();
+const ENDPOINT = 'https://chats-app-admin.onrender.com/';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [chatUsers , setChatUsers] = useState(null)
-  const [chats , setChats] = useState(null)
-  const [message , setMessage] = useState(null)
+  const [chatUsers, setChatUsers] = useState(null);
+  const [chats, setChats] = useState(null);
+  const [message, setMessage] = useState(null);
   const [customers, setCustomers] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const API = 'https://chatsapp-nw05.onrender.com/api/v1';
-  const [socket , setSocket] = useState(null)
+  const [socket, setSocket] = useState(null);
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (token) {
@@ -23,11 +24,10 @@ export const AuthProvider = ({ children }) => {
     }
   }, [accessToken]);
 
-
   useEffect(() => {
     if (socket) {
       socket.on('messageReceived', (data) => {
-        console.log("Message received:", data);
+        console.log('Message received:', data);
         setChats((prevChats) => [...prevChats, data]);
       });
       return () => {
@@ -35,7 +35,6 @@ export const AuthProvider = ({ children }) => {
       };
     }
   }, [socket]);
-  
 
   const login = async (email, password) => {
     try {
@@ -100,37 +99,37 @@ export const AuthProvider = ({ children }) => {
   const getAllAvailableUsers = async () => {
     try {
       // const accessToken = window.sessionStorage.getItem("accessToken");
-      const res = await axios.get(`${API}/chat-app/chats/`, {
+      const res = await axios.get(`${ENDPOINT}/api/user/`, {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${user.token}`,
         },
       });
       setChatUsers(res.data.data);
-      return chatUsers
+      return chatUsers;
     } catch (error) {
       console.error('Error fetching all chatusers:', error);
     }
   };
 
-  function initializeSocket(){
+  function initializeSocket() {
     const newSocket = io('https://chatsapp-nw05.onrender.com', {
       headers: {
-        auth: {accessToken},
+        auth: { accessToken },
         withCredentials: true,
       },
     });
 
-    newSocket.on("connect", () => {
+    newSocket.on('connect', () => {
       console.log('Connected to socket server');
     });
 
     newSocket.on('messageReceived', (data) => {
-      console.log("Message received:", data);
+      console.log('Message received:', data);
       setChats((pre) => [...pre, data]);
     });
 
     setSocket(newSocket);
-  };
+  }
 
   const getAllSingleUserChats = async (chatId) => {
     try {
@@ -140,36 +139,29 @@ export const AuthProvider = ({ children }) => {
         },
       });
       const singleUserChats = res.data.data;
-      
+
       setChats(singleUserChats);
-      
+
       return singleUserChats;
     } catch (error) {
-      console.error("Error fetching all chats:", error);
+      console.error('Error fetching all chats:', error);
     }
   };
-  
-
-
 
   const sendMessageinChat = async (chatId, content, e) => {
     e.preventDefault();
     try {
       // Emit the new message to the socket server
       socket.emit('recievedMessage', { chat: chatId, content });
-      
+
       // Send the new message to the API
-      const res = await axios.post(
-        `${API}/chat-app/messages/${chatId}`,
-        content,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-  
+      const res = await axios.post(`${API}/chat-app/messages/${chatId}`, content, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
       // Add the new message to the existing chat messages
       const updatedChats = chats.map((chat) => {
         if (chat._id === chatId) {
@@ -180,18 +172,15 @@ export const AuthProvider = ({ children }) => {
         }
         return chat;
       });
-  
 
       // Update the chats state with the modified chat
       setChats(updatedChats);
-      getAllSingleUserChats(chatId)
+      getAllSingleUserChats(chatId);
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error('Error sending message:', error);
       // Handle error appropriately
     }
   };
-  
-  
 
   const authValue = useMemo(
     () => ({
@@ -208,7 +197,19 @@ export const AuthProvider = ({ children }) => {
       chats,
       setChats,
     }),
-    [login, logout, getAllCustomers, getAllAvailableUsers, getAllSingleUserChats, sendMessageinChat, user, customers, chatUsers, chats, setChats]
+    [
+      login,
+      logout,
+      getAllCustomers,
+      getAllAvailableUsers,
+      getAllSingleUserChats,
+      sendMessageinChat,
+      user,
+      customers,
+      chatUsers,
+      chats,
+      setChats,
+    ]
   );
 
   return <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>;
